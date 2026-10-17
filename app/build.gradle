@@ -1,0 +1,29 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.richardgg.wearcalc'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.richardgg.wearcalc'
+        minSdk 30
+        targetSdk 33
+        versionCode (System.getenv('VERSION_CODE') ?: '1').toInteger()
+        versionName System.getenv('VERSION_NAME') ?: '1.0'
+    }
+
+    buildTypes {
+        release {
+            // Signed with the debug key so the APK is directly installable.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

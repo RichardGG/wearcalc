@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
 
         display = new TextView(this);
-        display.setTextColor(Color.WHITE);
+        display.setTextColor(0xCC4FD8FF); // cyan, distinct from the white key labels
         display.setTypeface(Typeface.DEFAULT_BOLD);
         display.setGravity(Gravity.CENTER);
         display.setMaxLines(2);
@@ -99,12 +99,17 @@ public class MainActivity extends Activity {
     private TextView button(String label) {
         TextView t = new TextView(this);
         t.setText(label);
-        t.setTextColor(0xE6FFFFFF);
+        t.setTextColor(Color.WHITE);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        t.setShadowLayer(dp(3), 0, 0, Color.BLACK); // halo keeps labels legible over the display
         t.setGravity(Gravity.CENTER);
+        boolean accent = label.equals("=");
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(10));
-        bg.setColor(label.equals("=") ? 0x4DFF9800 : 0x26FFFFFF); // mostly transparent
+        // Dark scrim so the key stands out from the output behind it.
+        bg.setColor(accent ? 0x59FF9800 : 0x59000000);
+        bg.setStroke(dp(1), accent ? 0xCCFF9800 : 0x59FFFFFF);
         t.setBackground(bg);
         t.setClickable(true);
         t.setOnClickListener(v -> press(label));

@@ -17,12 +17,16 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 public class MainActivity extends Activity {
+    // Rows are {weight, keys...}; a row with no keys is a gap. Both pages share the same row
+    // layout so the expression and running total can sit in the two gaps (see buildScreen).
+    private static final float GAP = 0.5f;
     private static final String[][] PAGE_NUMBERS = {
-            {"7", "8", "9"}, {"4", "5", "6"}, {"1", "2", "3"}, {".", "0", "⌫"}};
+            {"1", "7", "8", "9"}, {"0.5"}, {"1", "4", "5", "6"}, {"1", "1", "2", "3"},
+            {"0.5"}, {"1", ".", "0", "⌫"}};
     // Equals is a swipe up and clear is a long-press on backspace, so neither needs a key.
-    // Rows are {weight, keys...}; the last row's keys are twice as tall.
     private static final String[][] PAGE_OPS = {
-            {"1", "÷", "×", "%"}, {"1", "−", "+", "±"}, {"2", "(", ")"}};
+            {"1", "÷", "×"}, {"0.5"}, {"1", "−", "+"}, {"1", "(", ")"},
+            {"0.5"}, {"1", "%", "±"}};
 
     private final StringBuilder expr = new StringBuilder();
     private boolean showingResult;
@@ -40,23 +44,13 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
-        // Output sits behind the keypad: expression in the top half, running total below.
-        LinearLayout screen = new LinearLayout(this);
-        screen.setOrientation(LinearLayout.VERTICAL);
-        int pad = dp(14);
-        display = outputView(0xCC4FD8FF, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM, 14, 80);
-        total = outputView(0xCCFFC247, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 12, 56);
-        display.setPadding(pad, pad, pad, 0);
-        total.setPadding(pad, 0, pad, pad);
-        screen.addView(display, new LinearLayout.LayoutParams(-1, 0, 1f));
-        screen.addView(total, new LinearLayout.LayoutParams(-1, 0, 1f));
-        root.addView(screen, new FrameLayout.LayoutParams(-1, -1));
+        root.addView(buildScreen(), new FrameLayout.LayoutParams(-1, -1));
 
         pager = new LinearLayout(this);
         pager.setOrientation(LinearLayout.HORIZONTAL);
         int w = getResources().getDisplayMetrics().widthPixels;
-        pager.addView(buildPage(PAGE_NUMBERS, true), new LinearLayout.LayoutParams(w, -1));
-        pager.addView(buildPage(PAGE_OPS, false), new LinearLayout.LayoutParams(w, -1));
+        pager.addView(buildPage(PAGE_NUMBERS), new LinearLayout.LayoutParams(w, -1));
+        pager.addView(buildPage(PAGE_OPS), new LinearLayout.LayoutParams(w, -1));
         // The pager is two screens wide; clipping hides the off-screen page.
         root.addView(pager, new FrameLayout.LayoutParams(2 * w, -1));
 
@@ -64,34 +58,49 @@ public class MainActivity extends Activity {
         refresh();
     }
 
-    private TextView outputView(int color, int gravity, int minSp, int maxSp) {
-        TextView t = new TextView(this);
-        t.setTextColor(color);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setGravity(gravity);
-        t.setMaxLines(1);
-        t.setAutoSizeTextTypeUniformWithConfiguration(minSp, maxSp, 2, TypedValue.COMPLEX_UNIT_SP);
-        return t;
-    }
-
     private int dp(int v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,
                 getResources().getDisplayMetrics());
     }
 
-    private View buildPage(String[][] rows, boolean numbers) {
+    private static final int INSET_X = 22, INSET_Y = 18;
+
+    /** Output layer: the expression and running total sit in the two gaps between key rows. */
+    private View buildScreen() {
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setPadding(dp(INSET_X), dp(INSET_Y), dp(INSET_X), dp(INSET_Y));
+        display = outputView(0xFF4FD8FF);
+        total = outputView(0xFFFFC247);
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
+        col.addView(display, new LinearLayout.LayoutParams(-1, 0, GAP));
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 2f));
+        col.addView(total, new LinearLayout.LayoutParams(-1, 0, GAP));
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
+        return col;
+    }
+
+    private TextView outputView(int color) {
+        TextView t = new TextView(this);
+        t.setTextColor(color);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setGravity(Gravity.CENTER);
+        t.setMaxLines(1);
+        t.setIncludeFontPadding(false);
+        t.setAutoSizeTextTypeUniformWithConfiguration(8, 40, 1, TypedValue.COMPLEX_UNIT_SP);
+        return t;
+    }
+
+    private View buildPage(String[][] rows) {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         // Large inset so buttons stay inside a round screen.
-        int inset = dp(22);
-        col.setPadding(inset, dp(18), inset, dp(18));
+        col.setPadding(dp(INSET_X), dp(INSET_Y), dp(INSET_X), dp(INSET_Y));
         for (String[] row : rows) {
             LinearLayout r = new LinearLayout(this);
             r.setOrientation(LinearLayout.HORIZONTAL);
-            int first = numbers ? 0 : 1;
-            for (int i = first; i < row.length; i++) r.addView(button(row[i]), cell(1));
-            float weight = numbers ? 1f : Float.parseFloat(row[0]);
-            col.addView(r, new LinearLayout.LayoutParams(-1, 0, weight));
+            for (int i = 1; i < row.length; i++) r.addView(button(row[i]), cell(1));
+            col.addView(r, new LinearLayout.LayoutParams(-1, 0, Float.parseFloat(row[0])));
         }
         return col;
     }

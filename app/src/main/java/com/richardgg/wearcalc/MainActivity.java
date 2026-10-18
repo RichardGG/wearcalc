@@ -3,7 +3,6 @@ package com.richardgg.wearcalc;
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -67,7 +66,7 @@ public class MainActivity extends Activity {
      * running total on the seam between rows 3 and 4, clear of the key labels.
      */
     private View buildScreen() {
-        final float box = 0.6f; // text box height in key rows
+        final float box = 1.3f; // text box height in key rows; may overlap the digits
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(dp(INSET_X), dp(INSET_Y), dp(INSET_X), dp(INSET_Y));
@@ -88,7 +87,7 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setMaxLines(1);
         t.setIncludeFontPadding(false);
-        t.setAutoSizeTextTypeUniformWithConfiguration(10, 36, 1, TypedValue.COMPLEX_UNIT_SP);
+        t.setAutoSizeTextTypeUniformWithConfiguration(10, 64, 1, TypedValue.COMPLEX_UNIT_SP);
         return t;
     }
 
@@ -118,13 +117,8 @@ public class MainActivity extends Activity {
         t.setTextColor(Color.WHITE);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
-        t.setShadowLayer(dp(3), 0, 0, Color.BLACK); // halo keeps labels legible over the display
+        t.setShadowLayer(dp(4), 0, 0, Color.BLACK); // halo keeps labels legible over the display
         t.setGravity(Gravity.CENTER);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(10));
-        // Dark scrim so the key stands out from the output behind it.
-        bg.setColor(0x59000000);
-        t.setBackground(bg);
         t.setClickable(true);
         t.setOnClickListener(v -> press(label));
         if (label.equals("⌫")) {

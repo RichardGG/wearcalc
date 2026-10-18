@@ -17,16 +17,13 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 
 public class MainActivity extends Activity {
-    // Rows are {weight, keys...}; a row with no keys is a gap. Both pages share the same row
-    // layout so the expression and running total can sit in the two gaps (see buildScreen).
-    private static final float GAP = 0.5f;
+    // Rows are {weight, keys...}. Both pages use four equal rows so the output layer can line
+    // up with the seams between them (see buildScreen).
     private static final String[][] PAGE_NUMBERS = {
-            {"1", "7", "8", "9"}, {"0.5"}, {"1", "4", "5", "6"}, {"1", "1", "2", "3"},
-            {"0.5"}, {"1", ".", "0", "⌫"}};
+            {"1", "7", "8", "9"}, {"1", "4", "5", "6"}, {"1", "1", "2", "3"}, {"1", ".", "0", "⌫"}};
     // Equals is a swipe up and clear is a long-press on backspace, so neither needs a key.
     private static final String[][] PAGE_OPS = {
-            {"1", "÷", "×"}, {"0.5"}, {"1", "−", "+"}, {"1", "(", ")"},
-            {"0.5"}, {"1", "%", "±"}};
+            {"1", "÷", "×"}, {"1", "−", "+"}, {"1", "(", ")"}, {"1", "%", "±"}};
 
     private final StringBuilder expr = new StringBuilder();
     private boolean showingResult;
@@ -65,18 +62,22 @@ public class MainActivity extends Activity {
 
     private static final int INSET_X = 22, INSET_Y = 18;
 
-    /** Output layer: the expression and running total sit in the two gaps between key rows. */
+    /**
+     * Output layer: the expression is centred on the seam between key rows 1 and 2 and the
+     * running total on the seam between rows 3 and 4, clear of the key labels.
+     */
     private View buildScreen() {
+        final float box = 0.6f; // text box height in key rows
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(dp(INSET_X), dp(INSET_Y), dp(INSET_X), dp(INSET_Y));
         display = outputView(0xFF4FD8FF);
         total = outputView(0xFFFFC247);
-        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
-        col.addView(display, new LinearLayout.LayoutParams(-1, 0, GAP));
-        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 2f));
-        col.addView(total, new LinearLayout.LayoutParams(-1, 0, GAP));
-        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f - box / 2));
+        col.addView(display, new LinearLayout.LayoutParams(-1, 0, box));
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 2f - box));
+        col.addView(total, new LinearLayout.LayoutParams(-1, 0, box));
+        col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f - box / 2));
         return col;
     }
 
@@ -87,7 +88,7 @@ public class MainActivity extends Activity {
         t.setGravity(Gravity.CENTER);
         t.setMaxLines(1);
         t.setIncludeFontPadding(false);
-        t.setAutoSizeTextTypeUniformWithConfiguration(8, 40, 1, TypedValue.COMPLEX_UNIT_SP);
+        t.setAutoSizeTextTypeUniformWithConfiguration(10, 36, 1, TypedValue.COMPLEX_UNIT_SP);
         return t;
     }
 

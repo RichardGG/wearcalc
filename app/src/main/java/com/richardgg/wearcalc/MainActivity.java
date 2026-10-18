@@ -40,8 +40,6 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
-        root.addView(buildScreen(), new FrameLayout.LayoutParams(-1, -1));
-
         pager = new LinearLayout(this);
         pager.setOrientation(LinearLayout.HORIZONTAL);
         int w = getResources().getDisplayMetrics().widthPixels;
@@ -49,6 +47,8 @@ public class MainActivity extends Activity {
         pager.addView(buildPage(PAGE_OPS), new LinearLayout.LayoutParams(w, -1));
         // The pager is two screens wide; clipping hides the off-screen page.
         root.addView(pager, new FrameLayout.LayoutParams(2 * w, -1));
+        // Output is drawn over the keys; its views aren't clickable, so touches reach the keys.
+        root.addView(buildScreen(), new FrameLayout.LayoutParams(-1, -1));
 
         setContentView(root);
         refresh();
@@ -70,8 +70,8 @@ public class MainActivity extends Activity {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(dp(INSET_X), dp(INSET_Y), dp(INSET_X), dp(INSET_Y));
-        display = outputView(0xFF4FD8FF);
-        total = outputView(0xFFFFC247);
+        display = outputView(0xB84FD8FF);
+        total = outputView(0xB8FFC247);
         col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f - box / 2));
         col.addView(display, new LinearLayout.LayoutParams(-1, 0, box));
         col.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 2f - box));

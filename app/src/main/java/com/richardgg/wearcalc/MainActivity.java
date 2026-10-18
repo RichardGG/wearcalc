@@ -19,16 +19,20 @@ import java.math.MathContext;
 public class MainActivity extends Activity {
     private static final String[][] PAGE_NUMBERS = {
             {"7", "8", "9"}, {"4", "5", "6"}, {"1", "2", "3"}, {".", "0", "⌫"}};
+    // Equals is a swipe up and clear is a long-press on backspace, so neither needs a key.
+    // Rows are {weight, keys...}; the last row's keys are twice as tall.
     private static final String[][] PAGE_OPS = {
-            {"C", "(", ")"}, {"÷", "×", "%"}, {"−", "+", "±"}, {"⌫", "=", "="}};
+            {"1", "÷", "×", "%"}, {"1", "−", "+", "±"}, {"2", "(", ")"}};
 
     private final StringBuilder expr = new StringBuilder();
     private boolean showingResult;
     private TextView display;
+    private TextView total;
     private LinearLayout pager;
     private int page; // 0 = numbers, 1 = operators
-    private float downX, startTx;
-    private boolean dragging;
+    private float downX, downY, startTx;
+    private static final int NONE = 0, HORIZONTAL = 1, VERTICAL = 2;
+    private int drag = NONE;
 
     @Override
     protected void onCreate(Bundle b) {
@@ -36,22 +40,23 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
 
-        display = new TextView(this);
-        display.setTextColor(0xCC4FD8FF); // cyan, distinct from the white key labels
-        display.setTypeface(Typeface.DEFAULT_BOLD);
-        display.setGravity(Gravity.CENTER);
-        display.setMaxLines(2);
-        display.setAutoSizeTextTypeUniformWithConfiguration(
-                14, 120, 2, TypedValue.COMPLEX_UNIT_SP);
+        // Output sits behind the keypad: expression in the top half, running total below.
+        LinearLayout screen = new LinearLayout(this);
+        screen.setOrientation(LinearLayout.VERTICAL);
         int pad = dp(14);
-        display.setPadding(pad, pad, pad, pad);
-        root.addView(display, new FrameLayout.LayoutParams(-1, -1));
+        display = outputView(0xCC4FD8FF, Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM, 14, 80);
+        total = outputView(0xCCFFC247, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 12, 56);
+        display.setPadding(pad, pad, pad, 0);
+        total.setPadding(pad, 0, pad, pad);
+        screen.addView(display, new LinearLayout.LayoutParams(-1, 0, 1f));
+        screen.addView(total, new LinearLayout.LayoutParams(-1, 0, 1f));
+        root.addView(screen, new FrameLayout.LayoutParams(-1, -1));
 
         pager = new LinearLayout(this);
         pager.setOrientation(LinearLayout.HORIZONTAL);
         int w = getResources().getDisplayMetrics().widthPixels;
-        pager.addView(buildPage(PAGE_NUMBERS), new LinearLayout.LayoutParams(w, -1));
-        pager.addView(buildPage(PAGE_OPS), new LinearLayout.LayoutParams(w, -1));
+        pager.addView(buildPage(PAGE_NUMBERS, true), new LinearLayout.LayoutParams(w, -1));
+        pager.addView(buildPage(PAGE_OPS, false), new LinearLayout.LayoutParams(w, -1));
         // The pager is two screens wide; clipping hides the off-screen page.
         root.addView(pager, new FrameLayout.LayoutParams(2 * w, -1));
 
@@ -59,12 +64,22 @@ public class MainActivity extends Activity {
         refresh();
     }
 
+    private TextView outputView(int color, int gravity, int minSp, int maxSp) {
+        TextView t = new TextView(this);
+        t.setTextColor(color);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setGravity(gravity);
+        t.setMaxLines(1);
+        t.setAutoSizeTextTypeUniformWithConfiguration(minSp, maxSp, 2, TypedValue.COMPLEX_UNIT_SP);
+        return t;
+    }
+
     private int dp(int v) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v,
                 getResources().getDisplayMetrics());
     }
 
-    private View buildPage(String[][] rows) {
+    private View buildPage(String[][] rows, boolean numbers) {
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         // Large inset so buttons stay inside a round screen.
@@ -73,19 +88,10 @@ public class MainActivity extends Activity {
         for (String[] row : rows) {
             LinearLayout r = new LinearLayout(this);
             r.setOrientation(LinearLayout.HORIZONTAL);
-            for (int i = 0; i < row.length; i++) {
-                // On the operator page the bottom "=" spans two cells.
-                if (row == rows[3] && rows == PAGE_OPS) {
-                    if (i == 0) {
-                        r.addView(button(row[0]), cell(1));
-                    } else if (i == 1) {
-                        r.addView(button("="), cell(2));
-                    }
-                    continue;
-                }
-                r.addView(button(row[i]), cell(1));
-            }
-            col.addView(r, new LinearLayout.LayoutParams(-1, 0, 1f));
+            int first = numbers ? 0 : 1;
+            for (int i = first; i < row.length; i++) r.addView(button(row[i]), cell(1));
+            float weight = numbers ? 1f : Float.parseFloat(row[0]);
+            col.addView(r, new LinearLayout.LayoutParams(-1, 0, weight));
         }
         return col;
     }
@@ -104,15 +110,19 @@ public class MainActivity extends Activity {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         t.setShadowLayer(dp(3), 0, 0, Color.BLACK); // halo keeps labels legible over the display
         t.setGravity(Gravity.CENTER);
-        boolean accent = label.equals("=");
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(10));
         // Dark scrim so the key stands out from the output behind it.
-        bg.setColor(accent ? 0x59FF9800 : 0x59000000);
-        bg.setStroke(dp(1), accent ? 0xCCFF9800 : 0x59FFFFFF);
+        bg.setColor(0x59000000);
         t.setBackground(bg);
         t.setClickable(true);
         t.setOnClickListener(v -> press(label));
+        if (label.equals("⌫")) {
+            t.setOnLongClickListener(v -> {
+                press("C");
+                return true;
+            });
+        }
         return t;
     }
 
@@ -122,30 +132,37 @@ public class MainActivity extends Activity {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 downX = e.getRawX();
+                downY = e.getRawY();
                 startTx = pager.getTranslationX();
-                dragging = false;
+                drag = NONE;
                 break;
             case MotionEvent.ACTION_MOVE:
                 float dx = e.getRawX() - downX;
-                if (!dragging && Math.abs(dx) > dp(12)) {
-                    dragging = true;
+                float dy = e.getRawY() - downY;
+                if (drag == NONE && Math.max(Math.abs(dx), Math.abs(dy)) > dp(12)) {
+                    drag = Math.abs(dx) > Math.abs(dy) ? HORIZONTAL : VERTICAL;
                     MotionEvent cancel = MotionEvent.obtain(e);
                     cancel.setAction(MotionEvent.ACTION_CANCEL);
                     super.dispatchTouchEvent(cancel);
                     cancel.recycle();
                 }
-                if (dragging) {
+                if (drag == HORIZONTAL) {
                     pager.setTranslationX(Math.max(-w, Math.min(0, startTx + dx)));
-                    return true;
                 }
+                if (drag != NONE) return true;
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
-                if (dragging) {
+                if (drag == HORIZONTAL) {
                     float dxu = e.getRawX() - downX;
-                    if (Math.abs(dxu) > w / 5f) page = dxu < 0 ? 1 : 0;
-                    pager.animate().translationX(-page * w).setDuration(150).start();
-                    dragging = false;
+                    if (Math.abs(dxu) > w / 5f) showPage(dxu < 0 ? 1 : 0);
+                    else showPage(page);
+                } else if (drag == VERTICAL && e.getActionMasked() == MotionEvent.ACTION_UP
+                        && downY - e.getRawY() > dp(40)) {
+                    press("=");
+                }
+                if (drag != NONE) {
+                    drag = NONE;
                     return true;
                 }
                 break;
@@ -155,6 +172,11 @@ public class MainActivity extends Activity {
         return super.dispatchTouchEvent(e);
     }
 
+    private void showPage(int p) {
+        page = p;
+        pager.animate().translationX(-page * pager.getChildAt(0).getWidth()).setDuration(150).start();
+    }
+
     private void press(String k) {
         boolean isDigit = k.length() == 1 && (Character.isDigit(k.charAt(0)) || k.equals("."));
         if (showingResult) {
@@ -162,6 +184,7 @@ public class MainActivity extends Activity {
             if (isDigit || k.equals("(")) expr.setLength(0);
             showingResult = false;
         }
+        if (!isDigit && !k.equals("⌫") && !k.equals("C") && !k.equals("=")) showPage(0);
         switch (k) {
             case "C":
                 expr.setLength(0);
@@ -206,6 +229,7 @@ public class MainActivity extends Activity {
             expr.setLength(0);
             showingResult = false;
             display.setText("Error");
+            total.setText("");
         }
     }
 
@@ -219,5 +243,21 @@ public class MainActivity extends Activity {
 
     private void refresh() {
         display.setText(expr.length() == 0 ? "0" : expr.toString());
+        total.setText(showingResult ? "" : runningTotal());
+    }
+
+    /** Value of the expression so far, ignoring a dangling operator; empty if it is just a number. */
+    private String runningTotal() {
+        String e = expr.toString();
+        int end = e.length();
+        while (end > 0 && "×÷+−(".indexOf(e.charAt(end - 1)) >= 0) end--;
+        e = e.substring(0, end);
+        if (!e.matches(".*[×÷+%(].*") && !e.substring(Math.min(1, e.length())).contains("−")) return "";
+        try {
+            double v = Evaluator.eval(e);
+            return Double.isNaN(v) || Double.isInfinite(v) ? "" : "= " + format(v);
+        } catch (RuntimeException ex) {
+            return "";
+        }
     }
 }
